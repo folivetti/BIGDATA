@@ -56,6 +56,12 @@ binsum 1 _ = 1
 binsum _ 1 = 1
 binsum _ _ = 0
 
+cosine :: [Double] -> [Double] -> Double
+cosine x y = (dotprod x y) / (norm' x * norm' y)
+  where
+    dotprod u v = sum $ zipWith (*) u v
+    norm' u  = dotprod u u
+
 -- |'standardize' a vector
 standardize :: [Double] -> [Double]
 standardize x = map toCenter x
@@ -77,4 +83,40 @@ norm :: [Double] -> [Double]
 norm x = map (/nx) x
   where
     nx = sqrt . sum $ map (^2) x
+```
+
+```haskell
+type TF = M.HashMap String Integer
+
+tokenize :: String -> [[String]]
+tokenize text = filter (not . null) $ map process (lines text)
+  where
+    process line   = filter moreThanTwo $ map normalize (words line)
+    normalize word   = filter (/=' ') $ map lowerReplace word
+    lowerReplace c = if isAlphaNum c then toLower c else ' '
+    moreThanTwo l = length l > 2
+
+-- |generate 'n-grams' from tokenized text
+ngrams :: [[String]] -> Int -> [[String]]
+ngrams corpus n = map ngrams' corpus
+  where
+    ngrams' tokens = map (intercalate " ") $ grams tokens
+    grams tokens = sizeN $ map (take n) $ tails tokens 
+    sizeN l = filter (\l' -> length l' == n) l
+
+-- |'binarize' the corpus of BoW
+binarize :: [[String]] -> [TF]
+binarize corpus = map binVec corpus
+  where
+    binVec line = M.fromList $ zip line [1,1..]
+
+-- |'tf' generates the term frequency of a BoW
+tf :: [[String]] -> [TF]
+tf corpus = map countWords corpus
+  where
+    countWords doc = M.fromListWith (+) $ zip doc [1,1..]
+
+-- | 'df' calculates document frequency of words in a dictionary
+df :: [TF] -> TF
+df corpus = foldl' (M.unionWith (+)) M.empty corpus
 ```

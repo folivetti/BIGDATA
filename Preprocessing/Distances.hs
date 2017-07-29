@@ -34,6 +34,13 @@ binsum 1 _ = 1
 binsum _ 1 = 1
 binsum _ _ = 0
 
+-- |'cosine' distance of two vectors
+cosine :: [Double] -> [Double] -> Double
+cosine x y = (dotprod x y) / (norm' x * norm' y)
+  where
+    dotprod u v = sum $ zipWith (*) u v
+    norm' u  = dotprod u u
+
 -- |'standardize' a vector
 standardize :: [Double] -> [Double]
 standardize x = map toCenter x
@@ -61,6 +68,7 @@ main :: IO ()
 main = do
     print (euclidean [1.0, 2.0, 1.0] [3.0, 2.0, 4.0]) -- 3.6
     print (minkowski 1 [1.0, 2.0, 1.0] [3.0, 2.0, 4.0]) -- 5.0
+    print (cosine  [1.0, 2.0, 1.0] [3.0, 2.0, 4.0]) -- 0.06
     print (jaccard [1,0,0,1] [0,1,0,1]) -- 0.66
     print (standardize [2,0,-1]) -- [1.33, -0.26, -1.06]
     print (maxminScale [2,0,-1]) -- [1.0, 0.33, 0.0]
