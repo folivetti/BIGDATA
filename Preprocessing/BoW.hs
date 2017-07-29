@@ -15,7 +15,7 @@ import Data.Char (toLower, isAlphaNum)
 import Data.List (foldl', nub, tails, intercalate)
 import Data.Hashable (Hashable)
 
-type TF = M.HashMap String Integer
+type TF = M.HashMap String Double
 
 -- |'tokenize' text to BoW
 tokenize :: String -> [[String]]
@@ -44,11 +44,21 @@ binarize corpus = map binVec corpus
 tf :: [[String]] -> [TF]
 tf corpus = map countWords corpus
   where
-    countWords doc = M.fromListWith (+) $ zip doc [1,1..]
+    countWords doc = M.map (\v -> v / (len doc)) $ M.fromListWith (+) $ zip doc [1,1..]
+    len d = fromIntegral $ length d
 
 -- | 'df' calculates document frequency of words in a dictionary
 df :: [TF] -> TF
 df corpus = foldl' (M.unionWith (+)) M.empty corpus
+
+-- | 'tfidf' of a document
+tfidf :: [TF] -> TF -> [TF]
+tfidf tf' df' = map calcTFIDF tf'
+  where
+    calcTFIDF t = M.mapWithKey calc t
+    calc k v = v * n / (getDF k)
+    getDF t = M.lookupDefault 0 t df'
+    n = fromIntegral $ length tf'
 
 -- |'main' executa programa principal
 main :: IO ()
@@ -57,9 +67,12 @@ main = do
   let corpus = tokenize text
   let ng = ngrams corpus 2
   let uniqwords = nub $ concat corpus
+  let tf' = tf corpus
+  let df' = df $ binarize corpus
+  let tfidf' = tfidf tf' df'
   print (uniqwords)
   print (length uniqwords)
   print (binarize corpus)
   print (tf corpus)
   print (tf ng)
-  print (df $ binarize corpus)
+  print (tfidf')

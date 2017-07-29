@@ -114,9 +114,18 @@ binarize corpus = map binVec corpus
 tf :: [[String]] -> [TF]
 tf corpus = map countWords corpus
   where
-    countWords doc = M.fromListWith (+) $ zip doc [1,1..]
+    countWords doc = M.map (\v -> v / (len doc)) $ M.fromListWith (+) $ zip doc [1,1..]
+    len d = fromIntegral $ length d
 
 -- | 'df' calculates document frequency of words in a dictionary
 df :: [TF] -> TF
 df corpus = foldl' (M.unionWith (+)) M.empty corpus
+
+tfidf :: [TF] -> TF -> [TF]
+tfidf tf' df' = map calcTFIDF tf'
+  where
+    calcTFIDF t = M.mapWithKey calc t
+    calc k v = v * n / (getDF k)
+    getDF t = M.lookupDefault 0 t df'
+    n = fromIntegral $ length tf'
 ```
