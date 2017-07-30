@@ -86,23 +86,44 @@ norm x = map (/nx) x
 ```
 
 ```haskell
-type TF = M.HashMap String Integer
+type TF = M.HashMap String Double
 
+-- |'tokenize' text to BoW
 tokenize :: String -> [[String]]
-tokenize text = filter (not . null) $ map process (lines text)
+tokenize text = notEmpty $ map toTokens $ lines text
   where
-    process line   = filter moreThanTwo $ map normalize (words line)
-    normalize word   = filter (/=' ') $ map lowerReplace word
-    lowerReplace c = if isAlphaNum c then toLower c else ' '
-    moreThanTwo l = length l > 2
+    notEmpty       = filter (not . null)
+    toTokens line   = preProcess $ words line
+    preProcess     = (filter moreThanTwo) . (map normalize)
+    normalize word = map toLower $ filter isAlphaNum word
+    moreThanTwo l  = length l > 2
+
+-- |generate 'ngrams' from a sequence of tokens
+ngrams :: Int -> [String] -> [String]
+ngrams n tokens = map genGram $ grams tokens
+  where
+    genGram       = (intercalate " ") . (take n)
+    grams tokens  = sizeN $ tails tokens 
+    sizeN         = filter (\l' -> length l' >= n)
+
+-- |generate 'ngrams' for each document of a corpus
+getNgrams :: Int -> [[String]] -> [[String]]
+getNgrams n corpus = map (ngrams n) corpus
+
+
+-- |generate 'skipgrams' of 'k' and 'n' for a sequence of tokens
+skipgrams n k tokens = map (intercalate " ") $ grams tokens
+  where
+    grams tokens  = sizeN $ concat $ map (takeSkips n) $ tails tokens
+    takeSkips 0 ws = [[]]
+    takeSkips n [] = [[]]
+    takeSkips n (w:[]) = [[w]]
+    takeSkips n (w:ws) = concat [zipWith (++) (repeat [w]) (takeSkips (n - 1) (drop k' ws)) | k' <- [0..k]]
+    sizeN         = filter (\l' -> length l'  == n)
 
 -- |generate 'n-grams' from tokenized text
-ngrams :: [[String]] -> Int -> [[String]]
-ngrams corpus n = map ngrams' corpus
-  where
-    ngrams' tokens = map (intercalate " ") $ grams tokens
-    grams tokens = sizeN $ map (take n) $ tails tokens 
-    sizeN l = filter (\l' -> length l' == n) l
+getSkipgrams :: Int -> Int -> [[String]] -> [[String]]
+getSkipgrams n k corpus = map (skipgrams n k) corpus
 
 -- |'binarize' the corpus of BoW
 binarize :: [[String]] -> [TF]
@@ -121,6 +142,7 @@ tf corpus = map countWords corpus
 df :: [TF] -> TF
 df corpus = foldl' (M.unionWith (+)) M.empty corpus
 
+-- | 'tfidf' of a document
 tfidf :: [TF] -> TF -> [TF]
 tfidf tf' df' = map calcTFIDF tf'
   where
