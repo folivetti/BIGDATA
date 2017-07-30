@@ -19,7 +19,7 @@ type TF = M.HashMap String Double
 
 -- |'tokenize' a line to BoW
 tokenize :: String -> [String]
-tokenize text = preProcess $ words line
+tokenize line = preProcess $ words line
   where
     preProcess     = (filter moreThanTwo) . (map normalize)
     normalize word = map toLower $ filter isAlphaNum word
@@ -80,7 +80,7 @@ tfidf :: [TF] -> TF -> [TF]
 tfidf tf' df' = map calcTFIDF tf'
   where
     calcTFIDF t = M.mapWithKey calc t
-    calc k v = v * n / (getDF k)
+    calc k v = v * log (n / (getDF k))
     getDF t = M.lookupDefault 0 t df'
     n = fromIntegral $ length tf'
 
