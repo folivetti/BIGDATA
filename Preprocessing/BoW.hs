@@ -17,16 +17,20 @@ import Data.Hashable (Hashable)
 
 type TF = M.HashMap String Double
 
--- |'tokenize' text to BoW
-tokenize :: String -> [[String]]
-tokenize text = notEmpty $ map toTokens $ lines text
+-- |'tokenize' a line to BoW
+tokenize :: String -> [String]
+tokenize text = preProcess $ words line
   where
-    notEmpty       = filter (not . null)
-    toTokens line   = preProcess $ words line
     preProcess     = (filter moreThanTwo) . (map normalize)
     normalize word = map toLower $ filter isAlphaNum word
     moreThanTwo l  = length l > 2
 
+-- |
+getTokens :: String -> [[String]]
+getTokens text = notEmpty $ map tokenize $ lines text
+  where
+    notEmpty       = filter (not . null)
+  
 -- |generate 'ngrams' from a sequence of tokens
 ngrams :: Int -> [String] -> [String]
 ngrams n tokens = map genGram $ grams tokens
@@ -86,7 +90,7 @@ main = do
   text <- getContents
 
   let
-    corpus = tokenize text
+    corpus = getTokens text
     tf' = tf corpus
     ng = tf $ getNgrams 2 corpus
     sg = tf $getSkipgrams 3 2 corpus
