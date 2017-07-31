@@ -165,66 +165,62 @@ parseFile file = distribute (map parseLine) (lines file)
     toDouble [oc, co, grade] = [binarize oc, [rank co, read grade]]
 
 -- |'minkowski' distance
-minkowski :: Double -> [Double] -> [Double] -> Double
-minkowski p x y  = (sum partialSum) ** (1.0/p)
+minkowski :: Double -> [[(Double,Double)]] -> Double
+minkowski p chunks  = (sum partialSum) ** (1.0/p)
   where
     partialSum = map parSum chunks `using` parList rdeepseq
     parSum     = sum . (map pointwiseDist)
     pointwiseDist (xi,yi) = (abs (xi - yi)) ** p
-    chunks = chunksOf nchunks $ zip x y
-
--- |'euclidean' is just a special case of minkowski
-euclidean :: [Double] -> [Double] -> Double
-euclidean = minkowski 2
 
 -- |'cosine' distance of two vectors
-cosine :: [Double] -> [Double] -> Double
-cosine x y = (dotprod x y) / (norm' x * norm' y)
+cosine :: [[(Double,Double)]] -> Double
+cosine chunks = normXY `pseq` (dotprodXY  / (normx * normy))
   where
-    dotprod u v = sum $ (map partialSum (chunks u v) `using` parList rdeepseq)
-    partialSum chunk = sum $ map (\(u',v') -> u'*v') chunk 
-    norm' u  = dotprod u u
-    chunks u v = chunksOf nchunks $ zip u v
+    normx     = fst' normXY
+    normy     = snd' normXY
+    dotprodXY = trd' normXY
+    normXY = foldr sumTuple (0,0,0) $ (map partialNorm chunks
+                                       `using` parList rdeepseq)
+
+    sumTuple (x1,y1,z1) (x2,y2,z2) = (x1+x2, y1+y2, z1+z2)
+    partialNorm chunk = foldl' sumTuple (0,0,0) $ map (\(u',v') -> (u'*u', v'*v',u'*v')) chunk
 
 -- |'standardize' a vector
-standardize :: [Double] -> [Double]
-standardize x = meanX `pseq` 
+standardize :: [[Double]] -> [Double]
+standardize chunks = meanX `pseq` 
                   (fromMean `pseq` 
                      (stdX `pseq` toCenter))
   where
     toCenter = concat $ (map (map center) chunks `using` parList rdeepseq)
     center = \xi -> (xi - meanX)/stdX
 
-    meanX  = sumX / (length' x)
+    meanX  = sumX / len
     sumX  = sum $ (map sum chunks `using` parList rdeepseq)
-    chunks = chunksOf nchunks x
 
     fromMean   = concat $ (map (map (\xi -> xi - meanX)) chunks
                              `using` parList rdeepseq)
 
     stdX  = sqrt varX
-    varX  = sumToMean / (length' x)
+    varX  = sumToMean / len
     sumToMean = sum $ (map sumSquare chunksDev `using` parList rdeepseq)
     sumSquare cc = sum $ map (\ci -> ci*ci) cc
     chunksDev = chunksOf nchunks fromMean
   
-    length' l = fromIntegral $ length l
+    len = fromIntegral $ sum $ map length chunks
 
 -- |'maxminScale' scales vector to [0,1]
-maxminScale :: [Double] -> [Double]
-maxminScale x = minimum' `par` maximum' `pseq` parScale
+maxminScale :: [[Double]] -> [Double]
+maxminScale chunks = minimum' `par` maximum' `pseq` parScale
   where
     parScale = concat $ (map (map scale) chunks `using` parList rdeepseq)
     scale xi = (xi - minimum') / (maximum' - minimum')
-    minimum' = minimum x
-    maximum' = maximum x
-    chunks = chunksOf nchunks x
+    minimum' = minimum $ map minimum chunks
+    maximum' = maximum $ map maximum chunks
 
 -- |'norm' calculates the norm vector
-norm :: [Double] -> [Double]
-norm x = nx `seq` concat $ (map (map (/nx)) chunks `using` parList rdeepseq)
+norm :: [[Double]] -> [Double]
+norm chunks = nx `seq` concat $ (map (map (/nx)) chunks `using` parList rdeepseq)
   where
     nx = sqrt . sum $ (map parSum chunks `using` parList rdeepseq)
     parSum c = sum $ map (^2) c
-    chunks = chunksOf nchunks x
 ```
