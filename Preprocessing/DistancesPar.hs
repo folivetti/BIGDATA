@@ -21,7 +21,7 @@ import Formatting
 import Formatting.Clock
 import System.Clock
 
-nchunks = 1000
+nchunks = 1500
 
 fst' (w,_,_) = w
 snd' (_,w,_) = w
@@ -73,16 +73,18 @@ standardize chunks = meanX `pseq`
 
 -- |'maxminScale' scales vector to [0,1]
 maxminScale :: [[Double]] -> [Double]
-maxminScale chunks = minimum' `par` maximum' `pseq` parScale
+maxminScale chunks = maxmin `pseq` parScale
   where
     parScale = concat $ (map (map scale) chunks `using` parList rdeepseq)
     scale xi = (xi - minimum') / (maximum' - minimum')
-    minimum' = minimum $ map minimum chunks
-    maximum' = maximum $ map maximum chunks
+    minimum' = minimum $ fst maxmin
+    maximum' = maximum $ snd maxmin
+    maxmin   = unzip $ (map (\x -> (minimum x, maximum x)) chunks
+                            `using` parList rdeepseq)
 
 -- |'norm' calculates the norm vector
 norm :: [[Double]] -> [Double]
-norm chunks = nx `seq` concat $ (map (map (/nx)) chunks `using` parList rdeepseq)
+norm chunks = nx `pseq` concat $ (map (map (/nx)) chunks `using` parList rdeepseq)
   where
     nx = sqrt . sum $ (map parSum chunks `using` parList rdeepseq)
     parSum c = sum $ map (^2) c
