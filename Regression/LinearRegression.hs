@@ -76,8 +76,6 @@ nway n x
   | n <= 1 = x
   | n == 2 = interactions x
   | otherwise = concat $ map (\xi -> map (*xi) (nway (n-1) x)) x
---[xi*xj | xi <- x, xj <- nway (n-1) x]
-
 
 interaction [] = []
 interactions (x:[]) = []
