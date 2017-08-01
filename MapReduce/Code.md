@@ -26,4 +26,12 @@ reducer :: (Hashable k0, Eq k0)
         -> [M.HashMap k0 a0] 
         -> M.HashMap k0 a0
 reducer f m  = foldl' (M.unionWith f) M.empty m
+
+wordCount :: Int -> [String] -> M.HashMap String Integer
+wordCount n wl = reducer (+) mapped
+  where
+    mapped     = map mapfun workers `using` parList rdeepseq
+    mapfun     = mapper (+) counter
+    counter w  = (w,1)
+    workers    = chunksOf n wl
 ```
