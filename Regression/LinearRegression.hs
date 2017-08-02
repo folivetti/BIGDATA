@@ -71,15 +71,12 @@ mean l = (sum l) / len
   where
     len = fromIntegral $ length l
 
-nway :: Int -> [Double] -> [Double]
-nway n x 
-  | n <= 1 = x
-  | n == 2 = interactions x
-  | otherwise = concat $ map (\xi -> map (*xi) (nway (n-1) x)) x
 
-interaction [] = []
-interactions (x:[]) = []
-interactions (x:xs) = (map (*x) xs) ++ interactions xs
+polyfeats :: Int -> [[Double]] -> [[Double]]
+polyfeats k x = map (\xi -> poly xi !! k) x
+  where
+    poly x' = foldr f ([1] : repeat []) x'
+    f x''    = scanl1 $ (++) . map (*x'')
 
 -- |'main' executa programa principal
 main :: IO ()
@@ -92,5 +89,5 @@ main = do
     let w = gradientDesc dataset alpha eta
     print w -- [2, 3.5, -1]
     print (mse dataset w)
-    print (nway 2 [1,2,3])
-    print (nway 3 [1,2,3])
+    print (polyfeats 2 [[1,2,3]])
+    print (polyfeats 3 [[1,2,3]])

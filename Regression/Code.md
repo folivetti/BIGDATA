@@ -53,13 +53,9 @@ update dataset alpha eta (w, nab0) = (zipWith (+) w'' nab', nab')
     w' = zipWith (+) w (map (*eta) nab0)  -- momentum
     w'' = zipWith (+) w (map (*eta) nab') -- regularization
 
-nway :: Int -> [Double] -> [Double]
-nway n x 
-  | n <= 1 = x
-  | n == 2 = interactions x
-  | otherwise = concat $ map (\xi -> map (*xi) (nway (n-1) x)) x
-
-interaction [] = []
-interactions (x:[]) = []
-interactions (x:xs) = (map (*x) xs) ++ interactions xs
+polyfeats :: Int -> [[Double]] -> [[Double]]
+polyfeats k x = map (\xi -> poly xi !! k) x
+  where
+    poly x' = foldr f ([1] : repeat []) x'
+    f x''    = scanl1 $ (++) . map (*x'')
 ```
