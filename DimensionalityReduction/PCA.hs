@@ -56,6 +56,7 @@ main :: IO ()
 main = do
     args <- getArgs
     fileTrain <- readFile (args !! 0)
+    let k = read (args !! 2) :: Integer
     let train = parseFile fileTrain
-    let train' = (multMtx train $ pca 2 train)
+    let train' = (multMtx train $ pca k train)
     writeFile (args !! 1) (toString train')
