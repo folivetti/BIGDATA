@@ -1,57 +1,55 @@
 ```haskell
 type Point = ([Double], Double)
 
-gradientDesc :: [Point] -> Double -> [Double]
-gradientDesc dataset alpha = head  $ (dropWhile notConverged)
-                             $ iterate  (update dataset alpha) w0
+gradientDesc :: [Point] -> Double -> Double -> [Double]
+gradientDesc dataset α η = gradientDesc' w0 nab0
   where
-    w0 = take n [1..]
-    n  = fromIntegral $ (length . fst $ head dataset)
-    notConverged w = mse dataset w > 1e-3
+    gradientDesc' w nab
+      | notConverged w nab = let (w', nab') = update' w nab
+                             in  gradientDesc' w' nab'
+      | otherwise          = w
+    
+    -- | initial variables
+    w0      = take n $ [1..]
+    nab0    = take n $ [0..]
+    n       = fromIntegral $ (length . fst $ head dataset)
+    -- support functions
+    update' = update dataset α η
+    mse'    = mse dataset
+
+    notConverged w nab = (mse' w > 1e-6) && (sum' (nab .^ 2) > 1e-12)
 
 
-update :: [Point] -> Double -> [Double] -> [Double]
-update dataset alpha w = foldl' (zipWith (+)) w nab
+update :: [Point] -> Double -> Double -> [Double] -> [Double] -> ([Double], [Double])
+update dataset α η w nab = (w''.+. nab'', nab'')
   where
-    nab = nabla dataset e alpha
-    e = err dataset w
+    nab'' = sumVecs nab'
+    nab'  = calcNabla dataset e α
+    e     = err dataset w
+    w'    = w  .+. (η*.nab)   -- momentum
+    w''   = w' .+. (η*.nab'') -- regularization
 
-nabla :: [Point] -> [Double] -> Double -> [[Double]]
-nabla dataset e alpha = zipWith step e dataset
+calcNabla :: [Point] -> [Double] -> Double -> [[Double]]
+calcNabla dataset e α = ((α/n) *. e) .*.. x
   where
-    step ei pi = map (\xi -> xi*ei*alpha/n) (fst pi)
+    x = map fst dataset
     n = fromIntegral $ length dataset
 
 err :: [Point] -> [Double] -> [Double]
-err dataset w = zipWith (-) (map snd dataset) yhat
+err dataset w = (map snd dataset) .-. yhat
   where
     yhat = map fhat dataset
-    fhat point = sum $ zipWith (*) w (fst point)
+    fhat point = sum $ w .*. (fst point)
 
 mse :: [Point] -> [Double] -> Double
-mse dataset w = mean $ map (^2) e
+mse dataset w = mean $ e .^ 2
   where
     e = err dataset w
 
-
-gradientDesc :: [Point] -> Double -> Double -> [Double]
-gradientDesc dataset alpha eta = fst $ head $ (dropWhile notConverged)
-                             $ iterate  (update dataset alpha eta) (w0, nab0)
+mean :: [Double] -> Double
+mean l = (sum l) / len
   where
-    w0   = take n [1..]
-    nab0 = take n [0..]
-    n    = fromIntegral $ (length . fst $ head dataset)
-    notConverged (w, nab) = (mse dataset w > 1e-6) && (foldl' (+) 0 (map (^2) nab) > 1e-12)
-
-
-update :: [Point] -> Double -> Double -> ([Double], [Double]) -> ([Double], [Double])
-update dataset alpha eta (w, nab0) = (zipWith (+) w'' nab', nab')
-  where
-    nab' = foldl' (zipWith (+)) (head nab) (tail nab)
-    nab = nabla dataset e alpha
-    e = err dataset w
-    w' = zipWith (+) w (map (*eta) nab0)  -- momentum
-    w'' = zipWith (+) w (map (*eta) nab') -- regularization
+    len = fromIntegral $ length l
 
 polyfeats :: Int -> [[Double]] -> [[Double]]
 polyfeats k x = map (\xi -> poly xi !! k) x
