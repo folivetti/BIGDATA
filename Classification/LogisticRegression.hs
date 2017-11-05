@@ -1,11 +1,13 @@
+{-# LANGUAGE UnicodeSyntax #-}
+
 {-|
-Module      : LogisticRegression
+Module      : LinearRegression
 Description : Gradient Descent
 Copyright   : (c) Fabrício Olivetti, 2017
 License     : GPL-3
 Maintainer  : fabricio.olivetti@gmail.com
 
-Applies gradient descent to a logistic regression problem.
+Applies gradient descent to a linear regression problem.
 -}
 
 module Main where
@@ -24,64 +26,85 @@ parseFile :: String -> [Point]
 parseFile file = map parseLine (lines file)
   where
     parseLine l = splitN (doubled l) 
-    splitN  l = (1 : (init l), last l)
+    splitN  l = (1 : (init l), last l) -- add bias +1
     doubled l  = map toDouble (words l)
     toDouble  w = read w :: Double
 
+-- | support operators
+sum' = foldl' (+) 0
+sumVecs xs = foldl' ((.+.)) (head xs) (tail xs)
+(.^) xs y = map (^y) xs
+(.+.) xs ys = zipWith (+) xs ys
+(.-.) xs ys = zipWith (-) xs ys
+(.*.) xs ys = zipWith (*) xs ys
+(*.) x ys = map (*x) ys
+(.*..) xs ys = zipWith (*.) xs ys
 
+logistic z = 1.0 / (1.0 + exp (-z))
+
+length' l = fromIntegral $ length l
 
 gradientDesc :: [Point] -> Double -> Double -> [Double]
-gradientDesc dataset alpha eta = fst $ head $ (dropWhile notConverged)
-                             $ iterate  (update dataset alpha eta) (w0, nab0)
+gradientDesc dataset α η = gradientDesc' w0 nab0
   where
-    w0   = take n [1..]
-    nab0 = take n [0..]
-    n    = fromIntegral $ (length . fst $ head dataset)
-    notConverged (w, nab) = (mse dataset w > 1e-6) && (foldl' (+) 0 (map (^2) nab) > 1e-6)
+    gradientDesc' w nab
+      | notConverged w nab = let (w', nab') = update' w nab
+                             in  gradientDesc' w' nab'
+      | otherwise          = w
+    
+    -- | initial variables
+    w0      = take n $ [1..]
+    nab0    = take n $ [0..]
+    n       = length' (fst $ head dataset)
+    -- support functions
+    update' = update dataset α η
+    mse'    = mse dataset
+
+    notConverged w nab = (mse' w > 1e-6) && (sum' (nab .^ 2) > 1e-12)
 
 
-update :: [Point] -> Double -> Double -> ([Double], [Double]) -> ([Double], [Double])
-update dataset alpha eta (w, nab0) = (zipWith (+) w'' nab', nab')
+update :: [Point] -> Double -> Double -> [Double] -> [Double] -> ([Double], [Double])
+update dataset α η w nab = (w''.+. nab'', nab'')
   where
-    nab' = foldl' (zipWith (+)) (head nab) (tail nab)
-    nab = nabla dataset e alpha
-    e = err dataset w
-    w' = zipWith (+) w (map (*eta) nab0)  -- momentum
-    w'' = zipWith (+) w (map (*eta) nab') -- regularization
+    nab'' = sumVecs nab'
+    nab'  = calcNabla dataset e α
+    e     = err dataset w
+    w'    = w  .+. (η*.nab)   -- momentum
+    w''   = w' .+. (η*.nab'') -- regularization
 
-nabla :: [Point] -> [Double] -> Double -> [[Double]]
-nabla dataset e alpha = zipWith step e dataset
+calcNabla :: [Point] -> [Double] -> Double -> [[Double]]
+calcNabla dataset e α = ((α/n) *. e) .*.. x
   where
-    step ei pi = map (\xi -> xi*ei*alpha/n) (fst pi)
-    n = fromIntegral $ length dataset
+    x = map fst dataset
+    n = length' dataset
 
 err :: [Point] -> [Double] -> [Double]
-err dataset w = zipWith (-) (map snd dataset) yhat
+err dataset w = y .-. yhat
   where
-    yhat = map fhat dataset
-    fhat point = logistic $ sum $ zipWith (*) w (fst point)
-    logistic z = 1.0 / (1.0 + exp (-z))
+    y       = map snd dataset
+    x       = map fst dataset
+    yhat    = map fhat x
+    fhat xi = logistic $ sum $ w .*. xi
 
 mse :: [Point] -> [Double] -> Double
-mse dataset w = mean $ map (^2) e
+mse dataset w = mean $ e .^ 2
   where
     e = err dataset w
 
 accuracy :: [Point] -> [Double] -> Double
-accuracy dataset w = (sum rights) / (len dataset)
+accuracy dataset w = (length' correct) / (length' dataset)
   where
-    rights = zipWith (truefalse) y yhat
+    correct  = filter (uncurry (==)) $ zip y yhat
+    yhat     = map fhat x
+    fhat xi  = round' $ logistic $ sum $ w .*. xi
+    
+    round' x = fromIntegral $ round $ x
+
     y = map snd dataset
-    truefalse a b =  if a==b then 1.0 else 0.0
-    yhat = map fhat dataset
-    fhat point = fromIntegral $ round $ logistic $ sum $ zipWith (*) w (fst point)
-    logistic z = 1.0 / (1.0 + exp (-z))
-    len l = fromIntegral $ length l
+    x = map fst dataset
 
 mean :: [Double] -> Double
-mean l = (sum l) / len
-  where
-    len = fromIntegral $ length l
+mean l = (sum l) / (length' l)
 
 -- |'main' executa programa principal
 main :: IO ()
@@ -89,10 +112,11 @@ main = do
     args <- getArgs
     file1 <- readFile (args !! 0)
     file2 <- readFile (args !! 1)
-    let alpha = read (args !! 2) :: Double
-    let eta = read (args !! 3) :: Double
-    let train = parseFile file1
-    let test = parseFile file2
-    let w = gradientDesc train alpha eta
+    let 
+      α = read (args !! 2) :: Double
+      η = read (args !! 3) :: Double
+      train = parseFile file1
+      test  = parseFile file2
+      w = gradientDesc train α η
     print w -- [2, 3.5, -1]
     print (accuracy test w)
