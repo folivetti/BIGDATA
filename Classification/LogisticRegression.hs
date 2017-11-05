@@ -1,13 +1,13 @@
 {-# LANGUAGE UnicodeSyntax #-}
 
 {-|
-Module      : LinearRegression
+Module      : LogisticRegression
 Description : Gradient Descent
 Copyright   : (c) Fabrício Olivetti, 2017
 License     : GPL-3
 Maintainer  : fabricio.olivetti@gmail.com
 
-Applies gradient descent to a linear regression problem.
+Applies gradient descent to a logistic regression problem.
 -}
 
 module Main where
